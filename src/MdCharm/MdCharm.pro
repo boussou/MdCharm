@@ -4,7 +4,7 @@ lessThan(QT_MAJOR_VERSION, 5){
     QT += core gui webkit network
 } else {
     DEFINES += QT_V5
-    QT += core gui webkit network widgets webkitwidgets printsupport
+    QT += core gui network widgets printsupport webenginewidgets webchannel
     unix: {
         QMAKE_RPATHDIR += /usr/local/lib/Qt-5.0.2/lib/
     }
@@ -35,7 +35,7 @@ win32-msvc*: {
 
 unix: {
     INCLUDEPATH +=../lib/pcre
-    LIBS += -lhunspell
+    LIBS += -lhunspell-1.7
     CONFIG(debug, debug|release){
         LIBS += -L../debug -lmdcharm_pcre
     } else {
@@ -87,7 +87,6 @@ SOURCES += \
     conf/configuredialog.cpp \
     configuration.cpp \
     conf/pages.cpp \
-    util/test/qregularexpression.cpp \
     baseeditor/baseeditor.cpp \
     about/aboutmdcharmdialog.cpp \
     util/gui/findandreplace.cpp \
@@ -137,7 +136,6 @@ HEADERS += \
     conf/configuredialog.h \
     configuration.h \
     conf/pages.h \
-    util/test/qregularexpression.h \
     baseeditor/baseeditor.h \
     about/aboutmdcharmdialog.h \
     util/gui/findandreplace.h \

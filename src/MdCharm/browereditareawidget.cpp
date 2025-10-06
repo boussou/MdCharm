@@ -1,9 +1,9 @@
 #include <QtGui>
 #include <QtCore>
-#include <QtWebKit>
+#include <QtWebEngineWidgets>
 
 #ifdef QT_V5
-#include <QtWebKitWidgets>
+// QtWebKitWidgets replaced with QtWebEngineWidgets
 #endif
 
 #include <cassert>
@@ -45,7 +45,8 @@ BrowerEditAreaWidget::BrowerEditAreaWidget(const QString &filePath) :
     webkitHandler = new BrowerWebkitHandler;
     brower = new BaseWebView(this);
     brower->setAcceptDrops(false);
-    brower->page()->setLinkDelegationPolicy(QWebPage::DelegateAllLinks);
+    // WebEngine: Link delegation handled differently
+    // TODO: Implement WebEngine-compatible link handling
     addJavascriptObject();
 
     initSignalsAndSlots();
@@ -77,8 +78,8 @@ void BrowerEditAreaWidget::initSignalsAndSlots()
 {
     connect(brower, SIGNAL(linkClicked(QUrl)),
             this, SLOT(openLinkOutside(QUrl)));
-    connect(brower->page()->mainFrame(), SIGNAL(javaScriptWindowObjectCleared()),
-            this, SLOT(addJavascriptObject()));
+    // WebEngine: JavaScript object injection works differently
+    // TODO: Implement WebEngine-compatible JavaScript integration
 }
 
 EditAreaWidget* BrowerEditAreaWidget::clone()
@@ -126,8 +127,9 @@ bool BrowerEditAreaWidget::isRedoAvailable(){ return false; }
 
 void BrowerEditAreaWidget::addJavascriptObject()
 {
-    brower->page()->mainFrame()
-            ->addToJavaScriptWindowObject("browerWebkitHandler", webkitHandler);
+    // WebEngine: JavaScript object injection works differently
+    // TODO: Use QWebChannel for JavaScript bridge
+    Q_UNUSED(webkitHandler);
 }
 
 void BrowerEditAreaWidget::openLinkOutside(const QUrl &url)

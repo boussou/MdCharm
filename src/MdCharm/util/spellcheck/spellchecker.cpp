@@ -213,7 +213,8 @@ void SpellChecker::ignoreWord(const QString &word)
 
 void SpellChecker::put_word(const QString &word)
 {
-    hunspell->add(codec->fromUnicode(word).constData());
+    std::string wordStr = codec->fromUnicode(word).toStdString();
+    hunspell->add(wordStr);
 }
 
 void SpellChecker::addToUserWordlist(const QString &word)

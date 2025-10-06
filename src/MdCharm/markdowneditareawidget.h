@@ -71,7 +71,6 @@ public:
 private:
     explicit MarkdownEditAreaWidget(MarkdownEditAreaWidget &src);
     void initPreviewerMatter();
-    void initHtmlEngine();
     void initGui();
     void initConfiguration();
     void initContent(const QString &filePath);
@@ -125,6 +124,7 @@ public slots:
     void setFocusEditor();
     void setFocusFinder();
     void hideFind();
+    void initHtmlEngine();
 private slots:
     void cursorPositionChanged();
     void overWriteModeChanged();

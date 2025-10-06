@@ -1,21 +1,26 @@
-#include <QPlainTextEdit>
-
-#ifdef QT_V5
-#include <QtWebKitWidgets>
-#else
-#include <QtWebKit/QWebFrame>
-#include <QtWebKit/QWebPage>
-#endif
-
+#include <QTextBlock>
+#include <QScrollBar>
 #include <QSplitter>
-#include <QResizeEvent>
-#include <QTextStream>
+#include <QVBoxLayout>
+#include <QTextCursor>
+#include <QApplication>
+#include <QClipboard>
+#include <QMimeData>
+#include <QUrl>
+#include <QDesktopServices>
+#include <QFileInfo>
+#include <QDir>
+#include <QPrintDialog>
 #include <QPrinter>
 #include <QTextDocumentWriter>
-#include <QTextDocument>
-#include <QDir>
-#include <QtGui>
-#include <QWebElement>
+#include <QBuffer>
+#include <QImageWriter>
+#include <QTextStream>
+#include <QDebug>
+#include <QTimer>
+#include <QWebChannel>
+#include <QWebEngineSettings>
+// QWebElement not available in Qt WebEngine
 
 #include "markdowneditareawidget.h"
 #include "markdowntohtml.h"
@@ -77,15 +82,34 @@ MarkdownEditAreaWidget::MarkdownEditAreaWidget(MdCharmForm *mainForm, const QStr
 
 void MarkdownEditAreaWidget::initPreviewerMatter()
 {
-    connect(previewer, SIGNAL(linkClicked(QUrl)),
-            this, SLOT(openUrl(QUrl)));
+    // WebEngine: loadFinished signal is on the page, not the view
+    connect(previewer->page(), SIGNAL(loadFinished(bool)),
+            this, SLOT(initHtmlEngine()));
     markdownWebkitHandler = new MarkdownWebkitHandler();
     addJavascriptObject();//warning:add before setHtml!!!!!!!!!!!!!!!!!!!!!!!!!!
-    QObject::connect(previewer->page()->mainFrame(),SIGNAL(javaScriptWindowObjectCleared()),
-                     this, SLOT(addJavascriptObject()));
+    // WebEngine: JavaScript object injection works differently
+    // TODO: Implement WebEngine-compatible JavaScript integration
     QObject::connect(previewer->page(), SIGNAL(linkHovered(QString,QString,QString)),
                      this, SIGNAL(showStatusMessage(QString)));
+    
+    // Initialize content immediately for live preview
     initHtmlEngine();
+    
+    // Ensure proper scrolling behavior based on sync setting
+    if (!conf->isSyncScrollbar()) {
+        // Use a timer to ensure the document is fully loaded before setting scrolling
+        QTimer::singleShot(100, [this]() {
+            QString script = R"(
+                document.body.style.overflow = 'auto';
+                document.documentElement.style.overflow = 'auto';
+                document.body.style.height = 'auto';
+                document.documentElement.style.height = 'auto';
+                document.body.style.maxHeight = 'none';
+                document.documentElement.style.maxHeight = 'none';
+            )";
+            previewer->page()->runJavaScript(script);
+        });
+    }
 }
 
 void MarkdownEditAreaWidget::initHtmlEngine()
@@ -102,7 +126,8 @@ void MarkdownEditAreaWidget::initHtmlEngine()
     std::string textResult = convertMarkdownToHtml();
 
     previewer->setHtml(htmlContent.arg(conf->getMarkdownCSS())
-                       .arg("<script type=\"text/javascript\" src=\"qrc:/jquery.js\"></script>")
+                       .arg("<script type=\"text/javascript\" src=\"qrc:/jquery.js\"></script>"
+                            "<script type=\"text/javascript\" src=\"qrc:/qtwebchannel/qwebchannel.js\"></script>")
                        .arg("<script type=\"text/javascript\" src=\"qrc:/markdown/markdown.js\"></script>")
                        .arg(QString::fromUtf8(textResult.c_str(), textResult.length())),
                        baseUrl);
@@ -121,6 +146,16 @@ void MarkdownEditAreaWidget::initGui()
     previewer = new MarkdownWebView(this);
     previewer->setAcceptDrops(false);
     previewer->setBaseSize(editor->baseSize().width(),previewer->baseSize().height());
+    // Ensure WebEngine allows manual scrolling
+    previewer->page()->settings()->setAttribute(QWebEngineSettings::ScrollAnimatorEnabled, true);
+    previewer->page()->settings()->setAttribute(QWebEngineSettings::JavascriptEnabled, true);
+    previewer->page()->settings()->setAttribute(QWebEngineSettings::ShowScrollBars, true);
+    // Enable focus and wheel events for scrolling
+    previewer->setFocusPolicy(Qt::WheelFocus);
+    // Ensure the widget can receive wheel events
+    previewer->setAttribute(Qt::WA_AcceptTouchEvents, false);
+    previewer->setContextMenuPolicy(Qt::DefaultContextMenu);
+    // WebEngine doesn't have scrollbar policy methods like WebView
     splitter->addWidget(previewer);
     findAndReplaceWidget = new FindAndReplace(this);
     findAndReplaceWidget->hide();
@@ -134,7 +169,8 @@ void MarkdownEditAreaWidget::initGui()
 
 void MarkdownEditAreaWidget::initConfiguration()
 {
-    previewer->page()->setLinkDelegationPolicy(QWebPage::DelegateAllLinks);//make qwebkit not load the link
+    // WebEngine: Link delegation handled differently
+    // TODO: Implement WebEngine-compatible link handling
 
     if (conf->isDisplayLineNumber())
         editor->enableDisplayLineNumber();
@@ -218,7 +254,7 @@ void MarkdownEditAreaWidget::initSignalsAndSlots()
     if(conf->isSyncScrollbar()){
         connect(editorScrollBar, SIGNAL(valueChanged(int)),
                 this, SLOT(scrollPreviewTo(int)));
-        connect(editor, SIGNAL(textChanged()),
+        connect(editor, SIGNAL(cursorPositionChanged()),
                 this, SLOT(scrollPreviewTo()));
     }
     connect(editor, SIGNAL(modificationChanged(bool)),
@@ -262,7 +298,9 @@ void MarkdownEditAreaWidget::parseMarkdown()
 //        return;
 //    lastRevision = editor->document()->revision();
     std::string textResult = convertMarkdownToHtml();
-    previewer->page()->mainFrame()->findFirstElement("body").setInnerXml(QString::fromUtf8(textResult.c_str(), textResult.length()));
+    // WebEngine: Direct DOM manipulation not available
+    // TODO: Use setHtml() or JavaScript execution for content updates
+    previewer->setHtml(QString::fromUtf8(textResult.c_str(), textResult.length()));
 }
 
 void MarkdownEditAreaWidget::reFind()
@@ -272,8 +310,10 @@ void MarkdownEditAreaWidget::reFind()
 
 void MarkdownEditAreaWidget::addJavascriptObject()
 {
-    previewer->page()->mainFrame()
-            ->addToJavaScriptWindowObject("markdownWebkitHandler", markdownWebkitHandler);
+    // WebEngine: Use QWebChannel for JavaScript object injection
+    QWebChannel *channel = new QWebChannel(this);
+    channel->registerObject(QStringLiteral("markdownWebkitHandler"), markdownWebkitHandler);
+    previewer->page()->setWebChannel(channel);
 }
 
 void MarkdownEditAreaWidget::setText(const QString &text)
@@ -308,7 +348,8 @@ void MarkdownEditAreaWidget::exportToPdf(const QString &filePath)
     printer.setOutputFormat(QPrinter::PdfFormat);
     printer.setOutputFileName(filePath);
     printer.setCreator("MdCharm(http://www.mdcharm.com/)");
-    previewer->print(&printer);
+    // WebEngine: Printing API changed
+    previewer->page()->print(&printer, [](bool success){ Q_UNUSED(success); });
 }
 
 void MarkdownEditAreaWidget::exportToODT(const QString &filePath)
@@ -449,6 +490,35 @@ void MarkdownEditAreaWidget::changeSyncScrollbarSetting(bool sync)
                 this, SLOT(scrollPreviewTo(int)));
         connect(editor, SIGNAL(cursorPositionChanged()),
                 this, SLOT(scrollPreviewTo()));
+    } else {
+        // WebEngine scrolling issue: Try disconnecting all scroll-related signals
+        // and ensure the WebEngine view can handle its own scrolling
+        disconnect(previewer->page(), nullptr, this, nullptr);
+        
+        // Re-establish only essential connections
+        QObject::connect(previewer->page(), SIGNAL(linkHovered(QString,QString,QString)),
+                         this, SIGNAL(showStatusMessage(QString)));
+        
+        // Force WebEngine to handle its own scrolling
+        QTimer::singleShot(200, [this]() {
+            QString script = R"(
+                // Remove any constraints that might prevent scrolling
+                document.body.style.overflow = 'auto';
+                document.documentElement.style.overflow = 'auto';
+                document.body.style.height = 'auto';
+                document.documentElement.style.height = 'auto';
+                document.body.style.maxHeight = 'none';
+                document.documentElement.style.maxHeight = 'none';
+                document.body.style.position = 'static';
+                
+                // Ensure scrolling events are not prevented
+                document.removeEventListener('wheel', function(){}, true);
+                document.removeEventListener('scroll', function(){}, true);
+                
+                console.log('WebEngine independent scrolling enabled');
+            )";
+            previewer->page()->runJavaScript(script);
+        });
     }
 }
 
@@ -582,7 +652,8 @@ void MarkdownEditAreaWidget::undo()
 
 void MarkdownEditAreaWidget::updateConfiguration()
 {
-    previewer->page()->setLinkDelegationPolicy(QWebPage::DelegateExternalLinks);//make qwebkit not load the link
+    // WebEngine: Link delegation handled differently
+    // TODO: Implement WebEngine-compatible external link handling
 
     if (conf->isDisplayLineNumber())
         editor->enableDisplayLineNumber();
@@ -754,25 +825,33 @@ void MarkdownEditAreaWidget::findPrevious()
 void MarkdownEditAreaWidget::scrollPreviewTo(int value)//Vertical scrollbar visible=true
 {
     float maxEdit = editorScrollBar->maximum();
-    int previewMax = previewer->page()->mainFrame()->scrollBarMaximum(Qt::Vertical);
-    previewer->page()->mainFrame()->setScrollBarValue(Qt::Vertical, value/maxEdit*previewMax);
+    if (maxEdit > 0) {
+        // WebEngine: Use JavaScript to control scrolling
+        float ratio = (float)value / maxEdit;
+        QString script = QString("if (document.body) { window.scrollTo(0, document.body.scrollHeight * %1); }").arg(ratio);
+        previewer->page()->runJavaScript(script);
+    }
 }
 
 void MarkdownEditAreaWidget::scrollPreviewTo()//Vertical scrollbar visible=false
 {
     int blockCount = editor->blockCount();
     int curBlock = editor->textCursor().blockNumber()+1;//FIXME: crashrpt 60e48fe9-6bfc-43cd-afac-002f89817ead
-    int previewMax = previewer->page()->mainFrame()->scrollBarMaximum(Qt::Vertical);
-    if(!editorScrollBar->isVisible() || blockCount==curBlock)
-        previewer->page()->mainFrame()->setScrollBarValue(Qt::Vertical, curBlock/blockCount*previewMax);
-
+    if (blockCount > 0) {
+        // WebEngine: Use JavaScript to control scrolling based on cursor position
+        float ratio = (float)curBlock / blockCount;
+        QString script = QString("if (document.body) { window.scrollTo(0, document.body.scrollHeight * %1); }").arg(ratio);
+        previewer->page()->runJavaScript(script);
+    }
 }
 
 void MarkdownEditAreaWidget::openUrl(const QUrl &url)
 {
     if(url.toString(QUrl::RemoveQuery|QUrl::RemoveFragment)==previewer->url().toString(QUrl::RemoveQuery|QUrl::RemoveFragment)){
         if(!url.fragment().isEmpty())
-            previewer->page()->mainFrame()->scrollToAnchor(url.fragment());
+            // WebEngine: Direct anchor scrolling not available
+            // TODO: Use JavaScript to scroll to anchor
+            Q_UNUSED(url);
         return;
     }
     QDesktopServices::openUrl(url);
@@ -798,7 +877,9 @@ std::string MarkdownEditAreaWidget::convertMarkdownToHtml()
 
 void MarkdownEditAreaWidget::jumpToPreviewAnchor(const QString &anchor)
 {
-    previewer->page()->currentFrame()->scrollToAnchor(anchor);
+    // WebEngine: Direct anchor scrolling not available
+    // TODO: Use JavaScript to scroll to anchor
+    Q_UNUSED(anchor);
 }
 
 //-------------------------------- Clone ---------------------------------------

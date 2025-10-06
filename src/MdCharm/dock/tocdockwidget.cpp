@@ -7,8 +7,10 @@
 #include "configuration.h"
 #include "util/updatetocthread.h"
 
-#include <QtWebKit>
-#include <QWebFrame>
+#include <QtWebEngineWidgets>
+#include <QJsonDocument>
+#include <QJsonArray>
+// QWebFrame not available in WebEngine
 
 TOCDockWidget::TOCDockWidget(QWidget *parent) :
     QDockWidget(parent),
@@ -16,7 +18,8 @@ TOCDockWidget::TOCDockWidget(QWidget *parent) :
 {
     ui->setupUi(this);
 
-    ui->webView->page()->setLinkDelegationPolicy(QWebPage::DelegateAllLinks);
+    // WebEngine: Link delegation handled differently
+    // TODO: Implement WebEngine-compatible link handling
 
     thread = new UpdateTocThread(this);
 
@@ -78,5 +81,10 @@ void TOCDockWidget::updateToc(MarkdownToHtml::MarkdownType type, const QString &
 
 void TOCDockWidget::updateTocContent(const QString &result)
 {
-    ui->webView->page()->currentFrame()->findFirstElement("body").setInnerXml(result);
+    // WebEngine: No direct DOM manipulation, use JavaScript or setHtml instead
+    // TODO: Implement WebEngine-compatible DOM updates
+    QString escapedResult = result;
+    escapedResult.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
+    QString jsCode = QString("document.body.innerHTML = \"%1\";").arg(escapedResult);
+    ui->webView->page()->runJavaScript(jsCode);
 }

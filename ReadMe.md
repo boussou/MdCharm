@@ -1,4 +1,4 @@
-﻿[MdCharm is no longer maintained!!!](https://github.com/zhangshine/MdCharm/issues/4)
+﻿[MdCharm is no longer maintained by the original author](https://github.com/zhangshine/MdCharm/issues/4)
 
 ### Dependencies
 #### Windows
@@ -9,17 +9,13 @@
 
 
 #### Linux
-* Qt Creator + Qt(4.7+ | Qt5.2.1+)
+* Qt Creator + Qt (Qt5.2.1+)
 * libhunspell
 * python
 * git
 
 ### Build
-* check out
-
-```
-git checkout git@github.com:zhangshine/MdCharm.git
-```
+* check out : `git checkout git@github.com:zhangshine/MdCharm.git`
 * Open "MdCharm.pro" by Qt Creator and click "Build"
 
 ### License

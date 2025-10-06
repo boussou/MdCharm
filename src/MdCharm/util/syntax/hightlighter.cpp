@@ -3,7 +3,7 @@
 #include <QApplication>
 
 #include "hightlighter.h"
-#include "util/test/qregularexpression.h"
+#include <QRegularExpression>
 
 HighLighter::HighLighter(QTextDocument *parent) :
     QSyntaxHighlighter(parent)

@@ -2,7 +2,7 @@
 #define EXPORTDIRECTORYDIALOG_H
 
 #include <QDialog>
-#include <QWebView>
+#include <QWebEngineView>
 
 class QStandardItemModel;
 class Configuration;
@@ -42,7 +42,7 @@ private:
     Ui::ExportDirectoryDialog *ui;
     Configuration *m_conf;
     QStandardItemModel *m_model;
-    QWebView *webView;
+    QWebEngineView *webView;
 
     QStringList pendingFile;
     QString htmlTemplate;

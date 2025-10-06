@@ -7,6 +7,7 @@
 #include <QtCore/QDebug>
 #include <QtCore/QThreadStorage>
 #include <QtCore/qglobal.h>
+#include <QtCore/QDataStream>
 
 #include <pcre.h>
 
@@ -1387,7 +1388,9 @@ QRegularExpression::MatchOptions QRegularExpressionMatchIterator::matchOptions()
 */
 QDataStream &operator<<(QDataStream &out, const QRegularExpression &re)
 {
-    out << re.pattern() << quint32(re.patternOptions());
+    quint32 options = static_cast<quint32>(re.patternOptions());
+    out << re.pattern();
+    out.writeRawData(reinterpret_cast<const char*>(&options), sizeof(options));
     return out;
 }
 
@@ -1402,7 +1405,8 @@ QDataStream &operator>>(QDataStream &in, QRegularExpression &re)
 {
     QString pattern;
     quint32 patternOptions;
-    in >> pattern >> patternOptions;
+    in >> pattern;
+    in.readRawData(reinterpret_cast<char*>(&patternOptions), sizeof(patternOptions));
     re.setPattern(pattern);
     re.setPatternOptions(QRegularExpression::PatternOptions(patternOptions));
     return in;

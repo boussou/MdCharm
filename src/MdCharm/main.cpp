@@ -2,18 +2,20 @@
 
 #include <QApplication>
 #include <QDir>
-#include <QSplashScreen>
+#include <QTextCodec>
+#include <QTranslator>
+#include <QLibraryInfo>
+#include <QLocale>
 #include <QTime>
-#include <QThread>
-#include <QFile>
-#include <QMap>
+#include <QSplashScreen>
+#include <QPixmap>
 
-#include "version.h"
 #include "mdcharmapplication.h"
 #include "mdcharmform.h"
 #include "configuration.h"
 #include "util/spellcheck/spellchecker.h"
 #include "codesyntaxhighlighter.h"
+#include "version.h"
 #include <BreakpadHandler.h>
 
 void delayForShowSplash(unsigned int msec);
